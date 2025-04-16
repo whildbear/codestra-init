@@ -8,9 +8,12 @@ from ray.serve.handle import DeploymentHandle
 app = FastAPI()
 
 @serve.deployment(
+    name="StableDiffusion",
     ray_actor_options={
+        "num_gpus": 1,
+        "num_cpus": 4,
     },
-    num_replicas=1
+    num_replicas=1,
 )
 class StableDiffusion:
     def __init__(self):
