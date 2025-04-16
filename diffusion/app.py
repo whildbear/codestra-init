@@ -7,7 +7,12 @@ from ray.serve.handle import DeploymentHandle
 
 app = FastAPI()
 
-@serve.deployment(ray_actor_options={"num_gpus": 1})
+@serve.deployment(
+    ray_actor_options={
+        "resources": {"GPU_worker": 1}
+    },
+    num_replicas=1
+)
 class StableDiffusion:
     def __init__(self):
         from diffusers import StableDiffusionPipeline, EulerDiscreteScheduler
