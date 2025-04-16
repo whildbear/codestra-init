@@ -9,7 +9,6 @@ app = FastAPI()
 
 @serve.deployment(
     ray_actor_options={
-        "resources": {"GPU_worker": 1}
     },
     num_replicas=1
 )
