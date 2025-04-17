@@ -25,7 +25,14 @@ logger = logging.getLogger("ray.serve")
 app = FastAPI()
 
 
-@serve.deployment(name="VLLMDeployment")
+#@serve.deployment(name="VLLMDeployment")
+@serve.deployment(
+    name="VLLMDeployment",
+    ray_actor_options={
+        "num_gpus": 1,
+        "num_cpus": 4
+    }
+)
 @serve.ingress(app)
 class VLLMDeployment:
     def __init__(
