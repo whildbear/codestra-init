@@ -119,6 +119,8 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     engine_args.enforce_eager = True          # 🧠 кастомні шаблони
     engine_args.trust_remote_code = True      # ❗ HuggingFace кастом код
     engine_args.max_model_len = 8192          # 🧪 безпечний default
+    engine_args.max_num_batched_tokens = 2048
+    engine_args.max_num_seqs = 32
 
     return VLLMDeployment.bind(
         engine_args,
