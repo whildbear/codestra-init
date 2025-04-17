@@ -87,42 +87,35 @@ def parse_vllm_args(cli_args: Dict[str, str]):
     return parser.parse_args(arg_strings)
 
 def build_app(cli_args: Dict[str, str]) -> serve.Application:
-    if "model" not in cli_args or not cli_args["model"]:
+    # Використовуємо MODEL_ID із env_vars, якщо не задано в cli_args
+    model_id = cli_args.get("model") or os.environ.get("MODEL_ID")
+    if not model_id:
+        logger.error("MODEL_ID must be specified in cli_args or environment variables")
         raise ValueError("MODEL_ID must be specified in cli_args or environment variables")
+    
+    # Оновлюємо cli_args із model_id
+    cli_args = cli_args.copy()
+    cli_args["model"] = model_id
+    logger.debug(f"Building app with cli_args: {cli_args}")
+    
     parsed_args = parse_vllm_args(cli_args)
     engine_args = AsyncEngineArgs.from_cli_args(parsed_args)
 
     # Конфігурація для 16 ГБ VRAM
     engine_args.worker_use_ray = True
-    engine_args.dtype = "float16"
+    engine_args.dtype = os.environ.get("VLLM_DTYPE", "float16")
     engine_args.enforce_eager = True
     engine_args.trust_remote_code = True
     engine_args.max_num_seqs = 3  # Оптимізовано для стабільності
-    engine_args.max_model_len = 2048  # Оптимізовано для економії пам’яті
+    engine_args.max_model_len = int(os.environ.get("MAX_MODEL_LEN", 2048))  # Використовуємо env_vars
     engine_args.gpu_memory_utilization = 0.85  # Зменшено для безпеки
 
-    return VLLMDeployment.bind(
+    deployment = VLLMDeployment.bind(
         engine_args,
         parsed_args.response_role,
         cli_args.get("request_logger"),
         parsed_args.chat_template,
         cli_args.get("chat_template_content_format", "default"),
     )
-
-if __name__ == "__main__":
-    # Явне встановлення MODEL_ID (відновлено попередню поведінку)
-    os.environ["MODEL_ID"] = "microsoft/Phi-3-mini-4k-instruct"
-    os.environ["TENSOR_PARALLELISM"] = "1"
-    os.environ["PIPELINE_PARALLELISM"] = "1"
-
-    model = build_app(
-        {
-            "model": os.environ["MODEL_ID"],
-            "tensor-parallel-size": os.environ.get("TENSOR_PARALLELISM", "1"),
-            "pipeline-parallel-size": os.environ.get("PIPELINE_PARALLELISM", "1"),
-            "chat_template_content_format": "default",
-        }
-    )
-
-    # Запуск сервера
-    serve.run(model, host="0.0.0.0", port=8000)
+    logger.debug(f"Deployment object: {deployment}")
+    return deployment
