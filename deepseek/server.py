@@ -52,7 +52,16 @@ class VLLMDeployment:
         self.prompt_adapters = prompt_adapters
         self.request_logger = request_logger
         self.chat_template = chat_template
-        self.engine = AsyncLLMEngine.from_engine_args(engine_args)
+        #self.engine = AsyncLLMEngine.from_engine_args(engine_args)
+        self.engine = engine_args
+        try:
+            self.engine = AsyncLLMEngine.from_engine_args(self.engine_args)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise RuntimeError(f"Engine init failed: {e}")
+
+
         self.openai_serving_chat = None
 
     @app.post("/v1/chat/completions")
