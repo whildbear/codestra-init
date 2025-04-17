@@ -31,7 +31,8 @@ app = FastAPI()
     ray_actor_options={
         "num_gpus": 1,
         "num_cpus": 4
-    }
+    },
+      num_replicas=1,
 )
 @serve.ingress(app)
 class VLLMDeployment:
