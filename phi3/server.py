@@ -24,15 +24,13 @@ from vllm.utils import FlexibleArgumentParser
 logger = logging.getLogger("ray.serve")
 app = FastAPI()
 
-
-#@serve.deployment(name="VLLMDeployment")
 @serve.deployment(
     name="VLLMDeployment",
     ray_actor_options={
         "num_gpus": 1,
-        "num_cpus": 4
+        "num_cpus": 4,
     },
-      num_replicas=1,
+    num_replicas=1,
 )
 @serve.ingress(app)
 class VLLMDeployment:
@@ -52,15 +50,13 @@ class VLLMDeployment:
         self.prompt_adapters = prompt_adapters
         self.request_logger = request_logger
         self.chat_template = chat_template
-        #self.engine = AsyncLLMEngine.from_engine_args(engine_args)
-        self.engine = engine_args
+
         try:
             self.engine = AsyncLLMEngine.from_engine_args(self.engine_args)
         except Exception as e:
             import traceback
             traceback.print_exc()
             raise RuntimeError(f"Engine init failed: {e}")
-
 
         self.openai_serving_chat = None
 
@@ -97,6 +93,22 @@ class VLLMDeployment:
             assert isinstance(generator, ChatCompletionResponse)
             return JSONResponse(content=generator.model_dump())
 
+    @app.post("/chat")
+    async def prompt_only(self, request: Request):
+        body = await request.json()
+        prompt = body.get("prompt", "")
+        if not prompt:
+            return JSONResponse({"error": "Missing 'prompt'"}, status_code=400)
+
+        sampling_params = {
+            "max_tokens": 256,
+            "temperature": 0.7,
+        }
+
+        logger.info(f"Custom prompt request: {prompt}")
+        result = await self.engine.generate(prompt, sampling_params)
+        return JSONResponse({"response": result[0].outputs[0].text})
+
 
 def parse_vllm_args(cli_args: Dict[str, str]):
     arg_parser = FlexibleArgumentParser(
@@ -114,12 +126,14 @@ def parse_vllm_args(cli_args: Dict[str, str]):
 def build_app(cli_args: Dict[str, str]) -> serve.Application:
     parsed_args = parse_vllm_args(cli_args)
     engine_args = AsyncEngineArgs.from_cli_args(parsed_args)
+
+    # 🔧 Кастомні параметри для запуску на GPU (T4, A10)
     engine_args.worker_use_ray = True
-    engine_args.dtype = "float16"             # ❗ для T4 / A10
-    engine_args.enforce_eager = True          # 🧠 кастомні шаблони
-    engine_args.trust_remote_code = True      # ❗ HuggingFace кастом код
-    engine_args.max_model_len = 4092          # 🧪 безпечний default
-    engine_args.gpu_memory_utilization=0.9
+    engine_args.dtype = "float16"
+    engine_args.enforce_eager = True
+    engine_args.trust_remote_code = True
+    engine_args.max_model_len = 4092
+    engine_args.gpu_memory_utilization = 0.9
 
     return VLLMDeployment.bind(
         engine_args,
@@ -133,7 +147,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
 
 model = build_app({
     "model": os.environ["MODEL_ID"],
-    "tensor-parallel-size": os.environ["TENSOR_PARALLELISM"],
-    "pipeline-parallel-size": os.environ["PIPELINE_PARALLELISM"]
+    "tensor-parallel-size": os.environ.get("TENSOR_PARALLELISM", "1"),
+    "pipeline-parallel-size": os.environ.get("PIPELINE_PARALLELISM", "1")
 })
 
