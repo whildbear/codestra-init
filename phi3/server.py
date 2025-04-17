@@ -9,13 +9,11 @@ from starlette.responses import StreamingResponse, JSONResponse
 from ray import serve
 
 from vllm import SamplingParams
-from vllm.assets.image import ImageAsset
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.entrypoints.openai.cli_args import make_arg_parser
 from vllm.entrypoints.openai.protocol import (
     ChatCompletionRequest,
-    ChatCompletionResponse,
     ErrorResponse,
 )
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
@@ -39,12 +37,14 @@ class VLLMDeployment:
         response_role: str,
         request_logger: Optional[RequestLogger] = None,
         chat_template: Optional[str] = None,
+        chat_template_content_format: str = "default",
     ):
         logger.info(f"Starting with engine args: {engine_args}")
         self.engine_args = engine_args
         self.response_role = response_role
         self.request_logger = request_logger
         self.chat_template = chat_template
+        self.chat_template_content_format = chat_template_content_format
 
         self.engine = AsyncLLMEngine.from_engine_args(self.engine_args)
         self.openai_serving_chat = None
@@ -64,6 +64,7 @@ class VLLMDeployment:
                 self.response_role,
                 request_logger=self.request_logger,
                 chat_template=self.chat_template,
+                chat_template_content_format=self.chat_template_content_format,
             )
 
     @app.post("/v1/chat/completions")
@@ -79,31 +80,6 @@ class VLLMDeployment:
             return StreamingResponse(generator, media_type="text/event-stream")
 
         return JSONResponse(generator.model_dump())
-
-    @app.post("/chat")
-    async def prompt_only(self, request: Request):
-        body = await request.json()
-        prompt = body.get("prompt", "")
-        image_data = body.get("image", None)
-
-        if not prompt:
-            return JSONResponse({"error": "Missing 'prompt'"}, status_code=400)
-
-        multi_modal_data = {}
-        if image_data:
-            multi_modal_data["image"] = ImageAsset(image_data).pil_image
-
-        sampling_params = SamplingParams(max_tokens=256, temperature=0.7)
-
-        request_payload = {"prompt": prompt}
-        if multi_modal_data:
-            request_payload["multi_modal_data"] = multi_modal_data
-
-        logger.info(f"Custom prompt request: {request_payload}")
-
-        result = await self.engine.generate(request_payload, sampling_params)
-
-        return JSONResponse({"response": result[0].outputs[0].text})
 
 
 def parse_vllm_args(cli_args: Dict[str, str]):
@@ -134,6 +110,7 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
         parsed_args.response_role,
         cli_args.get("request_logger"),
         parsed_args.chat_template,
+        cli_args.get("chat_template_content_format", "default"),
     )
 
 
@@ -142,6 +119,7 @@ model = build_app(
         "model": os.environ["MODEL_ID"],
         "tensor-parallel-size": os.environ.get("TENSOR_PARALLELISM", "1"),
         "pipeline-parallel-size": os.environ.get("PIPELINE_PARALLELISM", "1"),
+        "chat_template_content_format": "default",
     }
 )
 
