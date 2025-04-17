@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from fastapi import FastAPI
 from starlette.requests import Request
@@ -17,6 +17,7 @@ from vllm.entrypoints.openai.protocol import (
     ErrorResponse,
 )
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
+from vllm.entrypoints.openai.serving_models import LoRAModulePath, PromptAdapterPath
 from vllm.entrypoints.logger import RequestLogger
 from vllm.utils import FlexibleArgumentParser
 
@@ -37,12 +38,16 @@ class VLLMDeployment:
         self,
         engine_args: AsyncEngineArgs,
         response_role: str,
+        lora_modules: Optional[List[LoRAModulePath]] = None,
+        prompt_adapters: Optional[List[PromptAdapterPath]] = None,
         request_logger: Optional[RequestLogger] = None,
         chat_template: Optional[str] = None,
     ):
         logger.info(f"Starting with engine args: {engine_args}")
         self.engine_args = engine_args
         self.response_role = response_role
+        self.lora_modules = lora_modules
+        self.prompt_adapters = prompt_adapters
         self.request_logger = request_logger
         self.chat_template = chat_template
 
@@ -71,6 +76,8 @@ class VLLMDeployment:
                 model_config,
                 served_model_names,
                 self.response_role,
+                lora_modules=self.lora_modules,
+                prompt_adapters=self.prompt_adapters,
                 request_logger=self.request_logger,
                 chat_template=self.chat_template,
             )
@@ -102,6 +109,7 @@ class VLLMDeployment:
         result = await self.engine.generate(prompt, sampling_params)
         return JSONResponse({"response": result[0].outputs[0].text})
 
+
 def parse_vllm_args(cli_args: Dict[str, str]):
     arg_parser = FlexibleArgumentParser(
         description="vLLM OpenAI-Compatible RESTful API server."
@@ -114,11 +122,12 @@ def parse_vllm_args(cli_args: Dict[str, str]):
     parsed_args = parser.parse_args(args=arg_strings)
     return parsed_args
 
+
 def build_app(cli_args: Dict[str, str]) -> serve.Application:
     parsed_args = parse_vllm_args(cli_args)
     engine_args = AsyncEngineArgs.from_cli_args(parsed_args)
 
-    # Кастомні параметри для запуску на GPU (T4, A10)
+    # 🔧 Кастомні параметри для запуску на GPU (T4, A10)
     engine_args.worker_use_ray = True
     engine_args.dtype = "float16"
     engine_args.enforce_eager = True
@@ -129,12 +138,16 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     return VLLMDeployment.bind(
         engine_args,
         parsed_args.response_role,
+        parsed_args.lora_modules,
+        parsed_args.prompt_adapters,
         cli_args.get("request_logger"),
         parsed_args.chat_template,
     )
+
 
 model = build_app({
     "model": os.environ["MODEL_ID"],
     "tensor-parallel-size": os.environ.get("TENSOR_PARALLELISM", "1"),
     "pipeline-parallel-size": os.environ.get("PIPELINE_PARALLELISM", "1")
 })
+
