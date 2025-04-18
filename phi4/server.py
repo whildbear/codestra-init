@@ -19,9 +19,7 @@ class Phi4Model:
             "microsoft/Phi-4-mini-instruct",
             torch_dtype=torch.float16,
             device_map="cuda",
-            trust_remote_code=True,
-            max_num_seqs = 3,
-            worker_use_ray = True,
+            trust_remote_code=True
         )
 
     def generate(self, prompt: str, max_new_tokens: int = 256) -> str:
