@@ -131,7 +131,9 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
     engine_args.dtype = os.environ.get("VLLM_DTYPE", "float16")
     engine_args.enforce_eager = True
     engine_args.trust_remote_code = True
-    engine_args.gpu_memory_utilization = 0.95
+    engine_args.max_num_seqs = 3
+    engine_args.max_model_len = int(os.environ.get("MAX_MODEL_LEN", 2048))
+    engine_args.gpu_memory_utilization = 0.85
 
     deployment = VLLMDeployment.bind(
         engine_args,
