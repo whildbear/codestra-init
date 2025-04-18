@@ -14,11 +14,11 @@ class Phi4Model:
             "microsoft/Phi-4-mini-instruct",
             torch_dtype=torch.float16,
             device_map="auto",
-            trust_remote_code=True
-            worker_use_ray = True
-            max_num_seqs = 3
-            enforce_eager = True
-            gpu_memory_utilization = 0.85
+            trust_remote_code=True,
+            worker_use_ray = True,
+            max_num_seqs = 3,
+            enforce_eager = True,
+            gpu_memory_utilization = 0.85,
         )
 
     def __call__(self, prompt: str) -> str:
