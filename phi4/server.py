@@ -18,7 +18,7 @@ class Phi4Model:
         self.model = AutoModelForCausalLM.from_pretrained(
             "microsoft/Phi-4-mini-instruct",
             torch_dtype=torch.float16,
-            device_map="cude",
+            device_map="cuda",
             trust_remote_code=True,
         )
 
