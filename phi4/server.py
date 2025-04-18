@@ -18,8 +18,8 @@ class Phi4Model:
         self.model = AutoModelForCausalLM.from_pretrained(
             "microsoft/Phi-4-mini-instruct",
             torch_dtype=torch.float16,
-            device_map="auto",
-            trust_remote_code=True
+            device_map="cude",
+            trust_remote_code=True,
         )
 
     def generate(self, prompt: str, max_new_tokens: int = 256) -> str:
@@ -29,7 +29,7 @@ class Phi4Model:
 
 class PromptRequest(BaseModel):
     prompt: str
-    max_new_tokens: int = 200
+    max_new_tokens: int = 256
 
 @serve.deployment
 @serve.ingress(app)
