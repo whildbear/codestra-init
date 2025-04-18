@@ -29,7 +29,7 @@ class Phi4Model:
 
 class PromptRequest(BaseModel):
     prompt: str
-    max_new_tokens: int = 256
+    max_new_tokens: int = 200
 
 @serve.deployment
 @serve.ingress(app)
