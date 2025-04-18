@@ -20,9 +20,6 @@ class Phi4Model:
             torch_dtype=torch.float16,
             device_map="cuda",
             trust_remote_code=True,
-            max_new_tokens=512,
-            num_return_sequences=3,
-            enforce_eager = True,
             max_num_seqs = 3,
             worker_use_ray = True,
         )
