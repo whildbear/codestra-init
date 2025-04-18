@@ -11,7 +11,7 @@ class Phi4Model:
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-4")
         self.model = AutoModelForCausalLM.from_pretrained(
-            "microsoft/phi-4",
+            "microsoft/Phi-4-mini-instruct",
             torch_dtype=torch.float16,
             device_map="auto",
             trust_remote_code=True
